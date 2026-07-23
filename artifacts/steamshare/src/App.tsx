@@ -9,6 +9,7 @@ import Login from "./pages/login";
 
 // Keep the admin console and the authentication screens as the only web surface.
 const Admin = lazy(() => import("./pages/admin"));
+const AccountDetail = lazy(() => import("./pages/account-detail"));
 const ForgotPassword = lazy(() => import("./pages/forgot-password"));
 const ResetPassword = lazy(() => import("./pages/reset-password"));
 
@@ -91,6 +92,7 @@ function Router() {
       <Switch>
         <Route path="/" component={() => <Redirect to="/login" />} />
         <Route path="/admin" component={Admin} />
+        <Route path="/accounts/:id" component={AccountDetail} />
         <Route path="/login" component={Login} />
         <Route path="/forgot-password" component={ForgotPassword} />
         <Route path="/reset-password" component={ResetPassword} />
