@@ -135,6 +135,31 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
     return;
   }
 
+  // Keep database failures actionable in production without returning the
+  // underlying connection string, credentials, or SQL query to the client.
+  const pgCode = typeof err?.code === "string" ? err.code : "";
+  if (["28P01", "08001", "08003", "08004", "08006", "ECONNREFUSED", "ECONNRESET", "ENOTFOUND", "ETIMEDOUT"].includes(pgCode)) {
+    logger.error(
+      { err, method: req.method, url: req.originalUrl?.split("?")[0] },
+      "Database connection error",
+    );
+    res.status(503).json({
+      error: "Database connection failed. Verify the production DATABASE_URL and redeploy.",
+    });
+    return;
+  }
+
+  if (pgCode === "42P01") {
+    logger.error(
+      { err, method: req.method, url: req.originalUrl?.split("?")[0] },
+      "Database schema error",
+    );
+    res.status(503).json({
+      error: "Database schema is missing. Apply the project schema to the production database.",
+    });
+    return;
+  }
+
   logger.error(
     { err, method: req.method, url: req.originalUrl?.split("?")[0] },
     "Unhandled API error",

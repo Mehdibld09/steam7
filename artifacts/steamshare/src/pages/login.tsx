@@ -234,8 +234,8 @@ export default function Login() {
                             Forgot password?
                           </Link>
                         </div>
-                        <FormControl>
-                          <div className="relative">
+                        <div className="relative">
+                          <FormControl>
                             <Input
                               type={showPassword ? "text" : "password"}
                               placeholder="••••••••"
@@ -243,6 +243,7 @@ export default function Login() {
                               {...field}
                               data-testid="input-password"
                             />
+                          </FormControl>
                             <button
                               type="button"
                               onClick={() => setShowPassword((v) => !v)}
@@ -250,8 +251,7 @@ export default function Login() {
                             >
                               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
-                          </div>
-                        </FormControl>
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}
