@@ -1,0 +1,1 @@
+- [Security hardening decisions](security-hardening.md) — XP farming fix, SSRF via avatar URL, ban bypass, session fixation, email whitelist, IP tracking all implemented.
