@@ -11,23 +11,23 @@ router.get("/healthz", async (_req, res) => {
     res.json(data);
   } catch (err: any) {
     const code = typeof err?.code === "string" ? err.code : "";
-    const connectionError = [
-      "28P01",
-      "08001",
-      "08003",
-      "08004",
-      "08006",
-      "ECONNREFUSED",
-      "ECONNRESET",
-      "ENETUNREACH",
-      "ENOTFOUND",
-      "EAI_AGAIN",
-      "ETIMEDOUT",
-    ].includes(code);
+    const category =
+      code === "28P01"
+        ? "authentication_failed"
+        : code === "ENOTFOUND" || code === "EAI_AGAIN"
+          ? "host_not_found"
+          : code === "ETIMEDOUT" || code === "ENETUNREACH"
+            ? "connection_timeout"
+            : code === "ECONNREFUSED" || code === "ECONNRESET"
+              ? "connection_refused"
+              : code === "08001" || code === "08003" || code === "08004" || code === "08006"
+                ? "postgres_connection_failed"
+                : "database_error";
 
     res.status(503).json({
       status: "degraded",
-      database: connectionError ? "unavailable" : "error",
+      database: "unavailable",
+      category,
     });
   }
 });
