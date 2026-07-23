@@ -5,10 +5,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme";
 import { Layout } from "@/components/layout";
 import { Spinner } from "@/components/ui/spinner";
+import Login from "./pages/login";
 
 // Keep the admin console and the authentication screens as the only web surface.
 const Admin = lazy(() => import("./pages/admin"));
-const Login = lazy(() => import("./pages/login"));
 const ForgotPassword = lazy(() => import("./pages/forgot-password"));
 const ResetPassword = lazy(() => import("./pages/reset-password"));
 
@@ -79,11 +79,9 @@ function ScrollToTop() {
 
 function PageLoader() {
   return (
-    <Layout>
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Spinner className="size-8 text-primary" />
-      </div>
-    </Layout>
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <Spinner className="size-8 text-primary" />
+    </div>
   );
 }
 
@@ -91,12 +89,12 @@ function Router() {
   return (
     <Suspense fallback={<PageLoader />}>
       <Switch>
-        <Route path="/" component={() => <Redirect to="/admin" />} />
+        <Route path="/" component={() => <Redirect to="/login" />} />
         <Route path="/admin" component={Admin} />
         <Route path="/login" component={Login} />
         <Route path="/forgot-password" component={ForgotPassword} />
         <Route path="/reset-password" component={ResetPassword} />
-        <Route component={() => <Redirect to="/admin" />} />
+        <Route component={() => <Redirect to="/login" />} />
       </Switch>
     </Suspense>
   );
