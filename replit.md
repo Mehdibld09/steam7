@@ -4,7 +4,7 @@ A Steam account-sharing / exchange platform ("Steam Family") — members share u
 
 ## Run & Operate
 
-- Two workflows are configured and run automatically in this Repl: `API Server` (Express API, port 8080) and `Start application` (Vite frontend, port 19720).
+- Two workflows are configured and run automatically in this Repl: `API Server` (Express API, port 8080) and `Start application` (Vite frontend, port 5000).
 - `pnpm --filter @workspace/api-server run dev` — run the API server directly
 - `pnpm --filter @workspace/steamshare run dev` — run the frontend directly
 - `pnpm run typecheck` — full typecheck across all packages
@@ -12,6 +12,19 @@ A Steam account-sharing / exchange platform ("Steam Family") — members share u
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string (Replit-managed Postgres is already provisioned and set)
+
+### Vercel database setup
+
+The frontend calls the API through same-origin `/api/*` routes. Vercel therefore needs `DATABASE_URL` and `SESSION_SECRET` in the Vercel project environment, and the database referenced by `DATABASE_URL` must have this project's schema. A reachable but empty database causes the web page's data requests to return 500 errors such as `relation "accounts" does not exist`.
+
+Before the first Vercel deployment, apply the schema using the Vercel database connection in a secure shell or CI environment:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm --filter @workspace/db run push
+```
+
+Do not add `db:push` to the Vercel build or server startup command. Schema changes should be applied separately, then the Vercel deployment can be rebuilt. The Replit development database is separate from an external Vercel database.
 
 ## Stack
 
@@ -24,7 +37,10 @@ A Steam account-sharing / exchange platform ("Steam Family") — members share u
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/steamshare` — Vite/React web application
+- `artifacts/api-server` — Express API and Vercel serverless app bundle
+- `lib/db/src/schema` — Drizzle/PostgreSQL schema source of truth
+- `lib/api-spec/openapi.yaml` — API contract source of truth
 
 ## Architecture decisions
 
