@@ -19,9 +19,27 @@ import {
 const router = express.Router();
 
 function getClientIp(req: Parameters<typeof router.post>[1] extends (req: infer R, ...a: any[]) => any ? R : never): string {
-  const forwarded = (req as any).headers["x-forwarded-for"];
-  if (typeof forwarded === "string") return forwarded.split(",")[0].trim();
-  return (req as any).socket?.remoteAddress ?? "unknown";
+  const headers = (req as any).headers ?? {};
+
+  // When the custom domain is behind Cloudflare, this is the visitor's IP.
+  // Vercel's x-forwarded-for can otherwise resolve to a hosting/proxy address,
+  // causing legitimate registrations to be classified as hosting traffic.
+  const trustedClientHeaders = [
+    "cf-connecting-ip",
+    "true-client-ip",
+    "x-real-ip",
+  ];
+  for (const header of trustedClientHeaders) {
+    const value = headers[header];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+
+  const forwarded = headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.trim()) {
+    return forwarded.split(",")[0].trim();
+  }
+
+  return (req as any).ip || (req as any).socket?.remoteAddress || "unknown";
 }
 
 const ALLOWED_EMAIL_DOMAINS = ["gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "yahoo.fr", "yahoo.co.uk", "hotmail.fr", "hotmail.co.uk", "live.com", "msn.com"];
@@ -45,7 +63,7 @@ router.post("/register", async (req, res) => {
     return;
   }
 
-  const ip = (req.headers["x-forwarded-for"] as string || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
+  const ip = getClientIp(req);
 
   // Check if IP is banned
   const [ipBan] = await db.select().from(ipBansTable).where(eq(ipBansTable.ip, ip)).limit(1);
@@ -291,7 +309,7 @@ router.post("/login", async (req, res) => {
   }
   const { username, password } = parsed.data;
 
-  const loginIpRaw = (req.headers["x-forwarded-for"] as string || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
+  const loginIpRaw = getClientIp(req);
 
   // Check if IP is banned before even looking up the user
   const [loginIpBan] = await db.select().from(ipBansTable).where(eq(ipBansTable.ip, loginIpRaw)).limit(1);

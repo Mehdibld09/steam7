@@ -8,3 +8,5 @@ Use Supabase's shared transaction pooler URL for Vercel serverless functions ins
 **Why:** The deployed health endpoint can succeed while every database-backed route waits for the Postgres connection timeout and returns 500. An empty but reachable database returns a normal empty JSON result, so this symptom indicates connectivity rather than missing rows.
 
 **How to apply:** In Vercel, set `DATABASE_URL` to the Supabase transaction pooler URI on port 6543, keep `SESSION_SECRET` configured, redeploy, then verify `/api/healthz` and `/api/accounts?sort=recent&limit=12`.
+
+When registration is behind Cloudflare/Vercel, use the trusted visitor-IP header (`cf-connecting-ip`) for VPN checks. Falling back to the proxy address can incorrectly block every registrant as hosting traffic.
