@@ -1,6 +1,6 @@
 import { getGetMeQueryKey, useGetMe, useLogout } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Shield, LogOut, Moon, Sun } from "lucide-react";
+import { LogOut, Moon, Sun } from "lucide-react";
 import { useTheme } from "@/lib/theme";
 
 export function Layout({ children }: { children: React.ReactNode; noFooter?: boolean }) {
@@ -25,13 +25,7 @@ export function Layout({ children }: { children: React.ReactNode; noFooter?: boo
       <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <a href="/admin" className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Shield className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="font-black tracking-tight">Steam Family</p>
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Admin Console</p>
-            </div>
+            <span className="font-black text-xl tracking-tight text-foreground">Steam Family</span>
           </a>
 
           <div className="flex items-center gap-2">
