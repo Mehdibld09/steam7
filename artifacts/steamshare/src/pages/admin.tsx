@@ -188,6 +188,12 @@ async function actionReport(reportId: number) {
   return res.json();
 }
 
+async function fetchAccountById(accountId: number) {
+  const res = await fetch(`/api/accounts/${accountId}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to load account");
+  return res.json() as Promise<any>;
+}
+
 async function deleteAdminComment(commentId: number) {
   const res = await fetch(`/api/admin/comments/${commentId}`, { method: "DELETE", credentials: "include" });
   if (!res.ok) throw new Error("Failed to delete comment");
@@ -703,6 +709,84 @@ type CommentActionTarget = {
   authorUsername: string;
 };
 
+function AccountPreviewDialog({ accountId, onClose }: { accountId: number; onClose: () => void }) {
+  const { data: account, isLoading, isError } = useQuery({
+    queryKey: ["account-preview", accountId],
+    queryFn: () => fetchAccountById(accountId),
+    staleTime: 30_000,
+  });
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5 text-primary" /> Account #{accountId}
+          </DialogTitle>
+        </DialogHeader>
+
+        {isLoading && (
+          <div className="py-8 text-center text-muted-foreground text-sm">Loading account…</div>
+        )}
+        {isError && (
+          <div className="py-4 text-center text-red-500 text-sm">Failed to load account.</div>
+        )}
+        {account && (
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Title</p>
+              <p className="font-semibold text-foreground">{account.title}</p>
+            </div>
+
+            {account.description && (
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Description</p>
+                <p className="text-sm text-foreground/80 line-clamp-4">{account.description}</p>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-3">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Status</p>
+                {account.isAvailable
+                  ? <Badge variant="secondary" className="text-emerald-600 bg-emerald-500/10 border-emerald-500/20">Available</Badge>
+                  : <Badge variant="outline" className="text-muted-foreground">Claimed / Unavailable</Badge>}
+              </div>
+              {account.posterUsername && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Posted by</p>
+                  <p className="text-sm font-medium">{account.posterUsername}</p>
+                </div>
+              )}
+              {account.likesCount !== undefined && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Likes</p>
+                  <p className="text-sm font-medium">{account.likesCount}</p>
+                </div>
+              )}
+            </div>
+
+            {account.games && account.games.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Games ({account.games.length})</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {account.games.map((g: string) => (
+                    <span key={g} className="px-2 py-0.5 rounded-md bg-muted border border-border text-xs font-medium">{g}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="pt-1 flex justify-end">
+              <Button variant="outline" onClick={onClose}>Close</Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ReportsTab() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -712,6 +796,7 @@ function ReportsTab() {
   const [banReason, setBanReason] = useState("");
   const [deleteContent, setDeleteContent] = useState(false);
   const [isActioning, setIsActioning] = useState(false);
+  const [viewAccountId, setViewAccountId] = useState<number | null>(null);
 
   const { data: reports = [], isLoading, isError, error } = useQuery({ queryKey: ["admin-reports"], queryFn: fetchReports });
 
@@ -803,7 +888,14 @@ function ReportsTab() {
                 </div>
                 <div className="flex flex-col gap-2 shrink-0 items-end">
                   {report.targetType === "account" && (
-                    <span className="text-xs text-muted-foreground">Account #{report.targetId}</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => setViewAccountId(report.targetId)}
+                    >
+                      <Eye className="h-3 w-3" /> View Account
+                    </Button>
                   )}
                   {report.isActioned && (
                     <span className="text-xs font-semibold text-green-600 bg-green-500/10 border border-green-500/20 rounded px-2 py-0.5">Actioned</span>
@@ -912,6 +1004,11 @@ function ReportsTab() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Account preview dialog */}
+      {viewAccountId !== null && (
+        <AccountPreviewDialog accountId={viewAccountId} onClose={() => setViewAccountId(null)} />
+      )}
     </div>
   );
 }
