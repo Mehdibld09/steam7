@@ -21,7 +21,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, type ReactNode } from "react";
 import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star, Settings, Mail, Phone, MapPin, ExternalLink, X, Hourglass, Check, XCircle, ChevronDown, ChevronUp, Eye, EyeOff, Zap, ArrowLeft, Users, LayoutDashboard, Pencil, Gift, CheckCheck } from "lucide-react";
 import { MarkdownEditor } from "@/components/markdown-editor";
-import { Link } from "wouter";
 
 // --- Dashboard ---
 async function fetchDashboard() {
@@ -188,23 +187,28 @@ export default function Admin() {
   const [, setLocation] = useLocation();
   const { data: user, isLoading: userLoading } = useGetMe();
 
-  if (!userLoading && (!user || (!user.isAdmin && !(user as any).isModerator))) {
-    setLocation("/");
+  useEffect(() => {
+    if (!userLoading && !user?.isAdmin) {
+      setLocation("/login");
+    }
+  }, [setLocation, user?.isAdmin, userLoading]);
+
+  if (userLoading || !user?.isAdmin) {
     return null;
   }
 
   const tabs = [
-    ...(user?.isAdmin ? [{ value: "dashboard", label: "Dashboard" }] : []),
+    { value: "dashboard", label: "Dashboard" },
     { value: "pending", label: "Pending Reviews" },
     { value: "users", label: "Users" },
     { value: "accounts", label: "Accounts" },
     { value: "reports", label: "Reports" },
-    ...(user?.isAdmin ? [{ value: "store", label: "Store" }] : []),
-    ...(user?.isAdmin ? [{ value: "announcements", label: "News" }] : []),
-    ...(user?.isAdmin ? [{ value: "site-settings", label: "Site Settings" }] : []),
-    ...(user?.isAdmin ? [{ value: "premium", label: "Premium" }] : []),
-    ...(user?.isAdmin ? [{ value: "ip-bans", label: "IP Bans" }] : []),
-    ...(user?.isAdmin ? [{ value: "deleted-accounts", label: "Deleted" }] : []),
+    { value: "store", label: "Store" },
+    { value: "announcements", label: "News" },
+    { value: "site-settings", label: "Site Settings" },
+    { value: "premium", label: "Premium" },
+    { value: "ip-bans", label: "IP Bans" },
+    { value: "deleted-accounts", label: "Deleted" },
   ];
 
   return (
@@ -217,28 +221,28 @@ export default function Admin() {
           <Shield className="h-8 w-8 text-primary" />
           <div>
             <h1 className="text-3xl font-black">Command Center</h1>
-            <p className="text-sm text-muted-foreground">{user?.isAdmin ? "Administrator" : "Moderator"} Panel</p>
+            <p className="text-sm text-muted-foreground">Administrator Panel</p>
           </div>
         </div>
 
-        <Tabs defaultValue={user?.isAdmin ? "dashboard" : "pending"} className="w-full">
+        <Tabs defaultValue="dashboard" className="w-full">
           <TabsList className="flex flex-wrap w-full mb-8 bg-card border border-border h-auto min-h-12 sm:flex-nowrap sm:overflow-x-auto sm:h-12">
             {tabs.map((t) => (
               <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>
             ))}
           </TabsList>
 
-          {user?.isAdmin && <TabsContent value="dashboard"><DashboardTab /></TabsContent>}
+          <TabsContent value="dashboard"><DashboardTab /></TabsContent>
           <TabsContent value="pending"><PendingReviewTab /></TabsContent>
-          <TabsContent value="users"><UsersTab isAdmin={!!user?.isAdmin} /></TabsContent>
+          <TabsContent value="users"><UsersTab isAdmin /></TabsContent>
           <TabsContent value="accounts"><AccountsTab /></TabsContent>
           <TabsContent value="reports"><ReportsTab /></TabsContent>
-          {user?.isAdmin && <TabsContent value="store"><StoreTab /></TabsContent>}
-          {user?.isAdmin && <TabsContent value="announcements"><AnnouncementsTab /></TabsContent>}
-          {user?.isAdmin && <TabsContent value="site-settings"><SiteSettingsTab /></TabsContent>}
-          {user?.isAdmin && <TabsContent value="premium"><PremiumAdminTab /></TabsContent>}
-          {user?.isAdmin && <TabsContent value="ip-bans"><IpBansTab /></TabsContent>}
-          {user?.isAdmin && <TabsContent value="deleted-accounts"><DeletedAccountsTab /></TabsContent>}
+          <TabsContent value="store"><StoreTab /></TabsContent>
+          <TabsContent value="announcements"><AnnouncementsTab /></TabsContent>
+          <TabsContent value="site-settings"><SiteSettingsTab /></TabsContent>
+          <TabsContent value="premium"><PremiumAdminTab /></TabsContent>
+          <TabsContent value="ip-bans"><IpBansTab /></TabsContent>
+          <TabsContent value="deleted-accounts"><DeletedAccountsTab /></TabsContent>
         </Tabs>
       </div>
     </Layout>
@@ -318,7 +322,7 @@ function UsersTab({ isAdmin }: { isAdmin: boolean }) {
                     <div className="flex items-center gap-1.5">
                       {expandedUser === u.id ? <ChevronUp className="h-3 w-3 text-muted-foreground shrink-0" /> : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />}
                       <div>
-                        <Link href={`/profile/${u.id}`} className="font-medium hover:text-primary" onClick={(e) => e.stopPropagation()}>{u.username}</Link>
+                        <span className="font-medium">{u.username}</span>
                         {u.displayName && u.displayName !== u.username && (
                           <div className="text-xs text-muted-foreground">{u.displayName}</div>
                         )}
@@ -520,7 +524,7 @@ function AccountsTab() {
             <TableRow key={a.id}>
               <TableCell className="font-mono text-xs">{a.id}</TableCell>
               <TableCell className="font-medium max-w-[200px] truncate">
-                <Link href={`/accounts/${a.id}`} className="hover:text-primary">{a.title}</Link>
+                <span>{a.title}</span>
               </TableCell>
               <TableCell>{(a as any).posterUsername}</TableCell>
               <TableCell>
@@ -739,9 +743,7 @@ function ReportsTab() {
                 </div>
                 <div className="flex flex-col gap-2 shrink-0 items-end">
                   {report.targetType === "account" && (
-                    <Link href={`/accounts/${report.targetId}`}>
-                      <Button size="sm" variant="outline" className="h-7 text-xs">View</Button>
-                    </Link>
+                    <span className="text-xs text-muted-foreground">Account #{report.targetId}</span>
                   )}
                   {report.isActioned && (
                     <span className="text-xs font-semibold text-green-600 bg-green-500/10 border border-green-500/20 rounded px-2 py-0.5">Actioned</span>

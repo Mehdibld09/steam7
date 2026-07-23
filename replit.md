@@ -1,10 +1,11 @@
-# Steam Family
+# Steam Family Admin Console
 
-A Steam account-sharing / exchange platform ("Steam Family") — members share unused Steam libraries, claim games, and level up through community participation. Includes an admin panel with security/anti-abuse tooling (IP bans, VPN detection, ban system).
+An admin-only control panel for managing the Steam Family platform. The public marketplace, member pages, registration, and community UI are intentionally not exposed by the web application; administrators sign in through `/login` and manage the platform from `/admin`.
 
 ## Run & Operate
 
 - Two workflows are configured and run automatically in this Repl: `API Server` (Express API, port 8080) and `Start application` (Vite frontend, port 5000).
+- The frontend intentionally exposes only `/admin` and the admin authentication/reset screens. Unknown and public paths redirect to `/admin`.
 - `pnpm --filter @workspace/api-server run dev` — run the API server directly
 - `pnpm --filter @workspace/steamshare run dev` — run the frontend directly
 - `pnpm run typecheck` — full typecheck across all packages

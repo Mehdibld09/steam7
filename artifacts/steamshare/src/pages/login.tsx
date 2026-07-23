@@ -69,7 +69,7 @@ export default function Login() {
 
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       setSuccess(true);
-      setTimeout(() => setLocation("/"), 600);
+       setTimeout(() => setLocation("/admin"), 600);
     } catch (e: any) {
       setSubmitError(e.message || "Invalid username or password. Please try again.");
     } finally {
@@ -92,7 +92,7 @@ export default function Login() {
 
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       setSuccess(true);
-      setTimeout(() => setLocation("/"), 600);
+       setTimeout(() => setLocation("/admin"), 600);
     } catch (e: any) {
       setCodeError(e.message || "Incorrect code. Please try again.");
     } finally {
@@ -116,7 +116,7 @@ export default function Login() {
       {/* Right panel — form */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 bg-background relative">
         <button
-          onClick={() => setLocation("/")}
+          onClick={() => setLocation("/admin")}
           className="absolute top-4 right-4 p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
           aria-label="Close"
         >
@@ -135,7 +135,7 @@ export default function Login() {
               </div>
               <div>
                 <p className="font-bold text-lg text-foreground">You're in!</p>
-                <p className="text-sm text-muted-foreground mt-1">Redirecting to the marketplace…</p>
+                <p className="text-sm text-muted-foreground mt-1">Redirecting to the admin console…</p>
               </div>
             </div>
           ) : requires2fa ? (
@@ -270,12 +270,6 @@ export default function Login() {
             </div>
           )}
 
-          <p className="mt-8 text-center text-sm text-muted-foreground">
-            Don't have an account?{" "}
-            <Link href="/register" className="text-primary font-semibold hover:underline">
-              Create one
-            </Link>
-          </p>
         </div>
       </div>
     </div>
