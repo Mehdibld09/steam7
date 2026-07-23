@@ -208,29 +208,36 @@ export default function Admin() {
   const [, setLocation] = useLocation();
   const { data: user, isLoading: userLoading } = useGetMe();
 
+  const isAdmin = !!user?.isAdmin;
+  const isModerator = !!user?.isModerator;
+  const canAccess = isAdmin || isModerator;
+
   useEffect(() => {
-    if (!userLoading && !user?.isAdmin) {
+    if (!userLoading && !canAccess) {
       setLocation("/login");
     }
-  }, [setLocation, user?.isAdmin, userLoading]);
+  }, [setLocation, canAccess, userLoading]);
 
-  if (userLoading || !user?.isAdmin) {
+  if (userLoading || !canAccess) {
     return null;
   }
 
-  const tabs = [
-    { value: "dashboard", label: "Dashboard" },
-    { value: "pending", label: "Pending Reviews" },
-    { value: "users", label: "Users" },
-    { value: "accounts", label: "Accounts" },
-    { value: "reports", label: "Reports" },
-    { value: "store", label: "Store" },
-    { value: "announcements", label: "News" },
-    { value: "site-settings", label: "Site Settings" },
-    { value: "premium", label: "Premium" },
-    { value: "ip-bans", label: "IP Bans" },
-    { value: "deleted-accounts", label: "Deleted" },
+  const allTabs = [
+    { value: "dashboard", label: "Dashboard", modAllowed: false },
+    { value: "pending", label: "Pending Reviews", modAllowed: true },
+    { value: "users", label: "Users", modAllowed: true },
+    { value: "accounts", label: "Accounts", modAllowed: true },
+    { value: "reports", label: "Reports", modAllowed: true },
+    { value: "store", label: "Store", modAllowed: false },
+    { value: "announcements", label: "News", modAllowed: false },
+    { value: "site-settings", label: "Site Settings", modAllowed: false },
+    { value: "premium", label: "Premium", modAllowed: false },
+    { value: "ip-bans", label: "IP Bans", modAllowed: false },
+    { value: "deleted-accounts", label: "Deleted", modAllowed: false },
   ];
+
+  const tabs = isAdmin ? allTabs : allTabs.filter((t) => t.modAllowed);
+  const defaultTab = tabs[0].value;
 
   return (
     <Layout>
@@ -242,28 +249,28 @@ export default function Admin() {
           <Shield className="h-8 w-8 text-primary" />
           <div>
             <h1 className="text-3xl font-black">Command Center</h1>
-            <p className="text-sm text-muted-foreground">Administrator Panel</p>
+            <p className="text-sm text-muted-foreground">{isAdmin ? "Administrator Panel" : "Moderator Panel"}</p>
           </div>
         </div>
 
-        <Tabs defaultValue="dashboard" className="w-full">
+        <Tabs defaultValue={defaultTab} className="w-full">
           <TabsList className="flex flex-wrap w-full mb-8 bg-card border border-border h-auto min-h-12 sm:flex-nowrap sm:overflow-x-auto sm:h-12">
             {tabs.map((t) => (
               <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>
             ))}
           </TabsList>
 
-          <TabsContent value="dashboard"><DashboardTab /></TabsContent>
+          {isAdmin && <TabsContent value="dashboard"><DashboardTab /></TabsContent>}
           <TabsContent value="pending"><PendingReviewTab /></TabsContent>
-          <TabsContent value="users"><UsersTab isAdmin /></TabsContent>
+          <TabsContent value="users"><UsersTab isAdmin={isAdmin} /></TabsContent>
           <TabsContent value="accounts"><AccountsTab /></TabsContent>
           <TabsContent value="reports"><ReportsTab /></TabsContent>
-          <TabsContent value="store"><StoreTab /></TabsContent>
-          <TabsContent value="announcements"><AnnouncementsTab /></TabsContent>
-          <TabsContent value="site-settings"><SiteSettingsTab /></TabsContent>
-          <TabsContent value="premium"><PremiumAdminTab /></TabsContent>
-          <TabsContent value="ip-bans"><IpBansTab /></TabsContent>
-          <TabsContent value="deleted-accounts"><DeletedAccountsTab /></TabsContent>
+          {isAdmin && <TabsContent value="store"><StoreTab /></TabsContent>}
+          {isAdmin && <TabsContent value="announcements"><AnnouncementsTab /></TabsContent>}
+          {isAdmin && <TabsContent value="site-settings"><SiteSettingsTab /></TabsContent>}
+          {isAdmin && <TabsContent value="premium"><PremiumAdminTab /></TabsContent>}
+          {isAdmin && <TabsContent value="ip-bans"><IpBansTab /></TabsContent>}
+          {isAdmin && <TabsContent value="deleted-accounts"><DeletedAccountsTab /></TabsContent>}
         </Tabs>
       </div>
     </Layout>
