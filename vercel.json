@@ -1,7 +1,7 @@
 {
   "framework": null,
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/steamshare run build",
+  "buildCommand": "pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/steamshare run build && echo '=== ROOT DIR ===' && ls -la && echo '=== build/ ===' && ls build/ 2>/dev/null || echo 'build/ NOT FOUND' && echo '=== artifacts/steamshare/dist ===' && ls artifacts/steamshare/dist/ 2>/dev/null || echo 'artifacts/steamshare/dist NOT FOUND'",
   "outputDirectory": "build",
   "functions": {
     "api/index.mjs": {
