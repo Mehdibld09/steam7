@@ -20,10 +20,8 @@ const router = express.Router();
 
 // --- Users ---
 router.get("/users", requireModOrAdmin, async (req, res) => {
-  const page = parseInt(String(req.query.page ?? "1"), 10);
   const search = String(req.query.search ?? "").trim();
-  const limit = search ? 20 : 50;
-  const offset = search ? 0 : (page - 1) * limit;
+  const searchLike = `%${search.toLowerCase()}%`;
 
   const users = await db
     .select({
@@ -49,12 +47,88 @@ router.get("/users", requireModOrAdmin, async (req, res) => {
       premiumExpiresAt: usersTable.premiumExpiresAt,
     })
     .from(usersTable)
-    .where(search ? sql`LOWER(${usersTable.username}) LIKE ${"%" + search.toLowerCase() + "%"}` : undefined)
+    .where(search ? sql`(
+      LOWER(${usersTable.username}) LIKE ${searchLike}
+      OR LOWER(${usersTable.displayName}) LIKE ${searchLike}
+      OR LOWER(${usersTable.email}) LIKE ${searchLike}
+    )` : undefined)
     .orderBy(desc(usersTable.createdAt))
-    .limit(limit)
-    .offset(offset);
+    .limit(50);
 
   res.json(users);
+});
+
+// --- Admin account search ---
+// Deliberately capped at 50 rows so the console always queries a bounded result set.
+router.get("/accounts", requireAdmin, async (req, res) => {
+  const search = String(req.query.search ?? "").trim();
+  const searchLike = `%${search.toLowerCase()}%`;
+  const conditions = [sql`${accountsTable.deletedAt} IS NULL`];
+
+  if (search) {
+    conditions.push(sql`(
+      LOWER(${accountsTable.title}) LIKE ${searchLike}
+      OR LOWER(COALESCE(${accountsTable.description}, '')) LIKE ${searchLike}
+      OR LOWER(${accountsTable.steamUsername}) LIKE ${searchLike}
+      OR LOWER(COALESCE(${usersTable.username}, '')) LIKE ${searchLike}
+    )`);
+  }
+
+  const accounts = await db
+    .select({
+      id: accountsTable.id,
+      userId: accountsTable.userId,
+      title: accountsTable.title,
+      description: accountsTable.description,
+      pointsCost: accountsTable.pointsCost,
+      isAvailable: accountsTable.isAvailable,
+      status: accountsTable.status,
+      createdAt: accountsTable.createdAt,
+      posterUsername: usersTable.username,
+    })
+    .from(accountsTable)
+    .leftJoin(usersTable, eq(accountsTable.userId, usersTable.id))
+    .where(and(...conditions))
+    .orderBy(desc(accountsTable.createdAt))
+    .limit(50);
+
+  res.json({ accounts, limit: 50 });
+});
+
+// --- Premium/VIP users ---
+// `pro` is the existing database tier used for the product's VIP membership.
+router.get("/premium-users", requireAdmin, async (req, res) => {
+  const search = String(req.query.search ?? "").trim();
+  const searchLike = `%${search.toLowerCase()}%`;
+  const conditions = [
+    sql`${usersTable.premiumTier} IN ('premium', 'pro')`,
+    sql`${usersTable.premiumExpiresAt} > NOW()`,
+  ];
+
+  if (search) {
+    conditions.push(sql`(
+      LOWER(${usersTable.username}) LIKE ${searchLike}
+      OR LOWER(COALESCE(${usersTable.displayName}, '')) LIKE ${searchLike}
+      OR LOWER(${usersTable.email}) LIKE ${searchLike}
+    )`);
+  }
+
+  const users = await db
+    .select({
+      id: usersTable.id,
+      username: usersTable.username,
+      displayName: usersTable.displayName,
+      email: usersTable.email,
+      premiumTier: usersTable.premiumTier,
+      premiumExpiresAt: usersTable.premiumExpiresAt,
+      isBanned: usersTable.isBanned,
+    })
+    .from(usersTable)
+    .where(and(...conditions))
+    .orderBy(desc(usersTable.premiumExpiresAt))
+    .limit(50);
+
+  res.json({ users, limit: 50 });
 });
 
 // Timed ban with reason — POST body: { durationHours?: number, reason?: string }
@@ -356,6 +430,8 @@ router.get("/dashboard", requireAdmin, async (_req, res) => {
     [{ total: openReports }],
     [{ total: totalClaims }],
     [{ total: totalPoints }],
+    [{ total: premiumUsers }],
+    [{ total: vipUsers }],
   ] = await Promise.all([
     db.select({ total: sql<number>`count(*)` }).from(usersTable),
     db.select({ total: sql<number>`count(*)` }).from(usersTable).where(sql`${usersTable.createdAt} >= ${ago24h}`),
@@ -371,6 +447,14 @@ router.get("/dashboard", requireAdmin, async (_req, res) => {
     db.select({ total: sql<number>`count(*)` }).from(reportsTable).where(eq(reportsTable.isDismissed, false)),
     db.select({ total: sql<number>`coalesce(sum(${accountsTable.claimsCount}), 0)` }).from(accountsTable),
     db.select({ total: sql<number>`coalesce(sum(${usersTable.points}), 0)` }).from(usersTable),
+    db.select({ total: sql<number>`count(*)` }).from(usersTable).where(and(
+      eq(usersTable.premiumTier, "premium"),
+      sql`${usersTable.premiumExpiresAt} > NOW()`,
+    )),
+    db.select({ total: sql<number>`count(*)` }).from(usersTable).where(and(
+      eq(usersTable.premiumTier, "pro"),
+      sql`${usersTable.premiumExpiresAt} > NOW()`,
+    )),
   ]);
 
   // Admin-only: private so CDN won't cache it publicly, but allows browser to cache briefly
@@ -382,6 +466,8 @@ router.get("/dashboard", requireAdmin, async (_req, res) => {
       new7d: Number(newUsers7d),
       new30d: Number(newUsers30d),
       banned: Number(bannedUsers),
+      premium: Number(premiumUsers),
+      vip: Number(vipUsers),
     },
     accounts: {
       total: Number(totalAccounts),

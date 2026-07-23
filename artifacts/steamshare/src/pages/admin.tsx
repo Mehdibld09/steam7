@@ -1,12 +1,10 @@
 import { Layout } from "@/components/layout";
 import {
   useGetMe,
-  useListAccounts,
   useDeleteAccount,
   useListAdLinks,
   useCreateAdLink,
   useDeleteAdLink,
-  getListAccountsQueryKey,
   getListAdLinksQueryKey,
 } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
@@ -18,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect, type ReactNode } from "react";
+import { Fragment, useState, useEffect, type ReactNode } from "react";
 import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star, Settings, Mail, Phone, MapPin, ExternalLink, X, Hourglass, Check, XCircle, ChevronDown, ChevronUp, Eye, EyeOff, Zap, ArrowLeft, Users, LayoutDashboard, Pencil, Gift, CheckCheck } from "lucide-react";
 import { MarkdownEditor } from "@/components/markdown-editor";
 
@@ -27,7 +25,7 @@ async function fetchDashboard() {
   const res = await fetch("/api/admin/dashboard", { credentials: "include" });
   if (!res.ok) throw new Error("Failed");
   return res.json() as Promise<{
-    users: { total: number; new24h: number; new7d: number; new30d: number; banned: number };
+    users: { total: number; new24h: number; new7d: number; new30d: number; banned: number; premium: number; vip: number };
     accounts: { total: number; new24h: number; new7d: number; removed: number; pending: number };
     reports: { total: number; open: number };
     activity: { totalClaims: number; pointsCirculating: number };
@@ -82,6 +80,15 @@ function DashboardTab() {
         </div>
       </section>
 
+      {/* Membership */}
+      <section>
+        <h3 className="text-base font-bold mb-4 flex items-center gap-2"><Star className="h-4 w-4 text-yellow-400" /> Membership</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <StatCard icon={<Star className="h-5 w-5" />} label="Premium Users" value={data.users.premium} sub="Active Premium memberships" color="text-yellow-400" />
+          <StatCard icon={<Zap className="h-5 w-5" />} label="VIP / Pro Users" value={data.users.vip} sub="Active VIP/Pro memberships" color="text-blue-400" />
+        </div>
+      </section>
+
       {/* Accounts */}
       <section>
         <h3 className="text-base font-bold mb-4 flex items-center gap-2"><Package className="h-4 w-4 text-primary" /> Accounts</h3>
@@ -107,10 +114,24 @@ function DashboardTab() {
 }
 
 // --- API helpers ---
-async function fetchAdminUsers() {
-  const res = await fetch("/api/admin/users", { credentials: "include" });
+async function fetchAdminUsers(search = "") {
+  const query = search.trim() ? `?search=${encodeURIComponent(search.trim())}` : "";
+  const res = await fetch(`/api/admin/users${query}`, { credentials: "include" });
   if (!res.ok) throw new Error("Failed to load users");
   return res.json() as Promise<any[]>;
+}
+
+async function fetchAdminAccounts(search = "") {
+  const query = search.trim() ? `?search=${encodeURIComponent(search.trim())}` : "";
+  const res = await fetch(`/api/admin/accounts${query}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to load accounts");
+  return res.json() as Promise<{ accounts: any[]; limit: number }>;
+}
+
+async function fetchPremiumUsers() {
+  const res = await fetch("/api/admin/premium-users", { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to load premium users");
+  return res.json() as Promise<{ users: any[]; limit: number }>;
 }
 
 async function banUser(userId: number, durationHours: number | null, reason: string) {
@@ -261,7 +282,16 @@ function UsersTab({ isAdmin }: { isAdmin: boolean }) {
   const [pointsDelta, setPointsDelta] = useState(0);
   const [expandedUser, setExpandedUser] = useState<number | null>(null);
 
-  const { data: users = [], isLoading, isError, error } = useQuery({ queryKey: ["admin-users"], queryFn: fetchAdminUsers });
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const { data: users = [], isLoading, isError, error } = useQuery({
+    queryKey: ["admin-users", debouncedSearch],
+    queryFn: () => fetchAdminUsers(debouncedSearch),
+  });
 
   const banMutation = useMutation({
     mutationFn: () => banUser(banTarget.id, banDuration, banReason),
@@ -287,8 +317,6 @@ function UsersTab({ isAdmin }: { isAdmin: boolean }) {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const filtered = users.filter((u: any) => u.username.toLowerCase().includes(search.toLowerCase()));
-
   return (
     <div className="space-y-4">
       <Input placeholder="Search users..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
@@ -313,10 +341,10 @@ function UsersTab({ isAdmin }: { isAdmin: boolean }) {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={5} className="text-center py-8">Loading...</TableCell></TableRow>
-            ) : filtered.length === 0 ? (
+            ) : users.length === 0 ? (
               <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No users found.</TableCell></TableRow>
-            ) : filtered.map((u: any) => (
-              <>
+            ) : users.map((u: any) => (
+              <Fragment key={u.id}>
                 <TableRow key={u.id} className="cursor-pointer hover:bg-muted/30" onClick={() => setExpandedUser(expandedUser === u.id ? null : u.id)}>
                   <TableCell>
                     <div className="flex items-center gap-1.5">
@@ -426,7 +454,7 @@ function UsersTab({ isAdmin }: { isAdmin: boolean }) {
                     </TableCell>
                   </TableRow>
                 )}
-              </>
+              </Fragment>
             ))}
           </TableBody>
         </Table>
@@ -489,7 +517,17 @@ function UsersTab({ isAdmin }: { isAdmin: boolean }) {
 
 // --- Accounts Tab ---
 function AccountsTab() {
-  const { data: accountsData, isLoading } = useListAccounts({ limit: 100 });
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const { data: accountsData, isLoading, isError, error } = useQuery({
+    queryKey: ["admin-accounts", debouncedSearch],
+    queryFn: () => fetchAdminAccounts(debouncedSearch),
+  });
   const deleteAccount = useDeleteAccount();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -498,7 +536,7 @@ function AccountsTab() {
     if (!confirm("Delete this account permanently?")) return;
     try {
       await deleteAccount.mutateAsync({ accountId: id });
-      queryClient.invalidateQueries({ queryKey: getListAccountsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: ["admin-accounts"] });
       toast({ title: "Account deleted" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
@@ -506,39 +544,54 @@ function AccountsTab() {
   };
 
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden overflow-x-auto">
-      <Table>
-        <TableHeader className="bg-muted/50">
-          <TableRow>
-            <TableHead>ID</TableHead>
-            <TableHead>Title</TableHead>
-            <TableHead>Poster</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {isLoading ? (
-            <TableRow><TableCell colSpan={5} className="text-center py-8">Loading...</TableCell></TableRow>
-          ) : accountsData?.accounts?.map(a => (
-            <TableRow key={a.id}>
-              <TableCell className="font-mono text-xs">{a.id}</TableCell>
-              <TableCell className="font-medium max-w-[200px] truncate">
-                <span>{a.title}</span>
-              </TableCell>
-              <TableCell>{(a as any).posterUsername}</TableCell>
-              <TableCell>
-                {a.isAvailable ? <Badge variant="secondary">Available</Badge> : <Badge variant="outline" className="text-muted-foreground">Claimed</Badge>}
-              </TableCell>
-              <TableCell className="text-right">
-                <Button variant="destructive" size="sm" onClick={() => handleDelete(a.id)}>
-                  <Trash className="h-4 w-4" />
-                </Button>
-              </TableCell>
+    <div className="space-y-4">
+      <Input
+        placeholder="Search accounts, Steam usernames, or posters..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="max-w-md"
+      />
+      {isError && (
+        <div className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3">
+          Failed to load accounts: {(error as any)?.message ?? "Unknown error"}
+        </div>
+      )}
+      <div className="bg-card border border-border rounded-xl overflow-hidden overflow-x-auto">
+        <Table>
+          <TableHeader className="bg-muted/50">
+            <TableRow>
+              <TableHead>ID</TableHead>
+              <TableHead>Title</TableHead>
+              <TableHead>Poster</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={5} className="text-center py-8">Loading...</TableCell></TableRow>
+            ) : !accountsData?.accounts?.length ? (
+              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No accounts found.</TableCell></TableRow>
+            ) : accountsData.accounts.map((a: any) => (
+              <TableRow key={a.id}>
+                <TableCell className="font-mono text-xs">{a.id}</TableCell>
+                <TableCell className="font-medium max-w-[200px] truncate">
+                  <span>{a.title}</span>
+                </TableCell>
+                <TableCell>{a.posterUsername ?? "—"}</TableCell>
+                <TableCell>
+                  {a.isAvailable ? <Badge variant="secondary">Available</Badge> : <Badge variant="outline" className="text-muted-foreground">Claimed</Badge>}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button variant="destructive" size="sm" onClick={() => handleDelete(a.id)}>
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -2433,8 +2486,6 @@ function PremiumAdminTab() {
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
 
-  const { data: allUsers = [] } = useQuery({ queryKey: ["admin-users"], queryFn: fetchAdminUsers });
-
   // Server-side user search for grant/revoke (finds any user, not just first 50)
   const [debouncedSearch, setDebouncedSearch] = useState("");
   useEffect(() => {
@@ -2450,6 +2501,10 @@ function PremiumAdminTab() {
       return res.json() as Promise<any[]>;
     },
     enabled: debouncedSearch.trim().length > 0,
+  });
+  const { data: premiumUsersData, isLoading: premiumUsersLoading } = useQuery({
+    queryKey: ["admin-premium-users"],
+    queryFn: fetchPremiumUsers,
   });
 
   const { data: pricing } = useQuery({
@@ -2549,6 +2604,7 @@ function PremiumAdminTab() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-premium-users"] });
       toast({ title: `✨ ${grantTier === "pro" ? "Pro" : "Premium"} granted to ${selectedUser.username} for ${grantDays} days` });
       const expiresAt = new Date(Date.now() + grantDays * 24 * 60 * 60 * 1000).toISOString();
       setSelectedUser((u: any) => ({ ...u, premiumTier: grantTier, premiumExpiresAt: expiresAt }));
@@ -2569,6 +2625,7 @@ function PremiumAdminTab() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-premium-users"] });
       toast({ title: `Premium revoked from ${selectedUser.username}` });
       setSelectedUser((u: any) => ({ ...u, premiumTier: null, premiumExpiresAt: null }));
     },
@@ -2593,7 +2650,7 @@ function PremiumAdminTab() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const premiumUsers = (allUsers as any[]).filter((u) => u.premiumTier && u.premiumExpiresAt);
+  const premiumUsers = premiumUsersData?.users ?? [];
 
   return (
     <div className="space-y-6">
@@ -2604,7 +2661,9 @@ function PremiumAdminTab() {
           <span className="text-yellow-400">★</span> Active Premium Users
           <span className="ml-auto text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{premiumUsers.length}</span>
         </h3>
-        {premiumUsers.length === 0 ? (
+        {premiumUsersLoading ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Loading memberships...</p>
+        ) : premiumUsers.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">No active premium subscriptions.</p>
         ) : (
           <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
@@ -2617,7 +2676,7 @@ function PremiumAdminTab() {
                 <div key={u.id} className="grid grid-cols-3 px-4 py-2.5 text-sm items-center hover:bg-muted/20 transition-colors">
                   <span className="font-medium truncate">{u.username}</span>
                   <span className={u.premiumTier === "pro" ? "text-blue-400 font-semibold" : "text-yellow-400 font-semibold"}>
-                    {u.premiumTier === "pro" ? "💎 Pro" : "⭐ Premium"}
+                    {u.premiumTier === "pro" ? "💎 VIP / Pro" : "⭐ Premium"}
                   </span>
                   <span className={expired ? "text-destructive" : "text-muted-foreground"}>
                     {u.premiumExpiresAt ? new Date(u.premiumExpiresAt).toLocaleDateString() : "—"}
