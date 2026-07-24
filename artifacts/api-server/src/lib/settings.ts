@@ -28,6 +28,16 @@ export async function getSetting(key: XpSettingKey): Promise<number> {
   return isNaN(parsed) ? XP_DEFAULTS[key] : parsed;
 }
 
+export async function getBooleanSetting(key: string, defaultValue: boolean): Promise<boolean> {
+  const [row] = await db
+    .select({ value: siteSettingsTable.value })
+    .from(siteSettingsTable)
+    .where(eq(siteSettingsTable.key, key))
+    .limit(1);
+  if (!row) return defaultValue;
+  return row.value === "1";
+}
+
 export async function getAllXpSettings(): Promise<typeof XP_DEFAULTS> {
   const rows = await db
     .select()

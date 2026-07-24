@@ -255,6 +255,7 @@ router.get("/smtp", requireAdmin, async (_req, res) => {
     smtp_pass: map.smtp_pass ? "••••••••" : "",
     smtp_from: map.smtp_from ?? "",
     configured: !!(map.smtp_host && map.smtp_user && map.smtp_pass),
+    register_2fa_enabled: map.register_2fa_enabled !== "0",
   });
 });
 
@@ -283,13 +284,14 @@ router.post("/smtp/test", requireAdmin, async (req, res) => {
 
 // PUT /site-settings/smtp — admin only, update SMTP config
 router.put("/smtp", requireAdmin, async (req, res) => {
-  const { smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from } = req.body as Record<string, string>;
+  const { smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from, register_2fa_enabled } = req.body as Record<string, any>;
 
   const pairs: [string, string][] = [
     ["smtp_host", String(smtp_host ?? "").trim()],
     ["smtp_port", String(smtp_port ?? "587").trim()],
     ["smtp_user", String(smtp_user ?? "").trim()],
     ["smtp_from", String(smtp_from ?? "").trim()],
+    ["register_2fa_enabled", register_2fa_enabled === false || register_2fa_enabled === "false" ? "0" : "1"],
   ];
 
   // Only update password if a real value (not the masked placeholder) is provided

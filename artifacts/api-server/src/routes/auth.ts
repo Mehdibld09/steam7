@@ -1,6 +1,6 @@
 // @ts-nocheck
 import express from "express";
-import { getSetting } from "../lib/settings";
+import { getSetting, getBooleanSetting } from "../lib/settings";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { db, usersTable, ipBansTable } from "@workspace/db";
@@ -91,10 +91,42 @@ router.post("/register", async (req, res) => {
     return;
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
-  const startingPoints = await getSetting("points_registration");
+  const [passwordHash, startingPoints, register2faEnabled] = await Promise.all([
+    bcrypt.hash(password, 10),
+    getSetting("points_registration"),
+    getBooleanSetting("register_2fa_enabled", true),
+  ]);
 
-  // Generate email verification token
+  // When registration 2FA is disabled, create the account and log in immediately.
+  if (!register2faEnabled) {
+    const [user] = await db
+      .insert(usersTable)
+      .values({
+        username,
+        email,
+        passwordHash,
+        registrationIp: ip,
+        points: startingPoints,
+        emailVerified: true,
+      })
+      .returning();
+
+    const { passwordHash: _, ...safeUser } = user;
+    req.session.regenerate((err: any) => {
+      if (err) { res.status(500).json({ error: "Session error" }); return; }
+      req.session.userId = user.id;
+      req.session.isAdmin = user.isAdmin;
+      req.session.isModerator = user.isModerator;
+      req.session._banCheckedAt = Date.now();
+      req.session.save((saveErr: any) => {
+        if (saveErr) { res.status(500).json({ error: "Session error" }); return; }
+        res.status(201).json(safeUser);
+      });
+    });
+    return;
+  }
+
+  // Registration 2FA enabled — generate a one-time code and require email verification.
   const verificationToken = crypto.randomBytes(32).toString("hex");
   const verificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
   const registrationCode = createVerificationCode();
@@ -117,7 +149,6 @@ router.post("/register", async (req, res) => {
     })
     .returning();
 
-  // Try to send verification email; if SMTP not configured, auto-verify and log in normally
   const host = req.headers.host || "localhost";
   const protocol = req.headers["x-forwarded-proto"] || "https";
   const verifyUrl = `${protocol}://${host}/verify-email?token=${verificationToken}`;

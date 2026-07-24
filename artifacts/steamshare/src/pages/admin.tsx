@@ -18,6 +18,7 @@ import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Fragment, useState, useEffect, type ReactNode } from "react";
 import { Shield, Trash, Copy, Ban, CheckCircle, UserCheck, Flag, Coins, UserX, Megaphone, Pin, PinOff, Plus, ShoppingBag, Package, Star, Settings, Mail, Phone, MapPin, ExternalLink, X, Hourglass, Check, XCircle, ChevronDown, ChevronUp, Eye, EyeOff, Zap, ArrowLeft, Users, LayoutDashboard, Pencil, Gift, CheckCheck } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { MarkdownEditor } from "@/components/markdown-editor";
 
 // --- Dashboard ---
@@ -2153,7 +2154,7 @@ function SmtpSettingsSection() {
     queryFn: async () => {
       const res = await fetch("/api/site-settings/smtp", { credentials: "include" });
       if (!res.ok) return null;
-      return res.json() as Promise<{ smtp_host: string; smtp_port: string; smtp_user: string; smtp_pass: string; smtp_from: string; configured: boolean }>;
+      return res.json() as Promise<{ smtp_host: string; smtp_port: string; smtp_user: string; smtp_pass: string; smtp_from: string; configured: boolean; register_2fa_enabled: boolean }>;
     },
   });
 
@@ -2163,6 +2164,7 @@ function SmtpSettingsSection() {
   const [pass, setPass] = useState("");
   const [from, setFrom] = useState("");
   const [testEmail, setTestEmail] = useState("");
+  const [register2faEnabled, setRegister2faEnabled] = useState(true);
   const smtpInitialized = useState(false);
 
   if (smtpData && !smtpInitialized[0]) {
@@ -2172,6 +2174,7 @@ function SmtpSettingsSection() {
     setUser(smtpData.smtp_user);
     setPass(smtpData.smtp_pass);
     setFrom(smtpData.smtp_from);
+    setRegister2faEnabled(smtpData.register_2fa_enabled ?? true);
   }
 
   const saveMutation = useMutation({
@@ -2180,7 +2183,7 @@ function SmtpSettingsSection() {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ smtp_host: host, smtp_port: port, smtp_user: user, smtp_pass: pass, smtp_from: from }),
+        body: JSON.stringify({ smtp_host: host, smtp_port: port, smtp_user: user, smtp_pass: pass, smtp_from: from, register_2fa_enabled: register2faEnabled }),
       });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || "Failed"); }
       return res.json();
@@ -2221,6 +2224,16 @@ function SmtpSettingsSection() {
         Used to send 2FA login codes to users. Works with Gmail, Outlook, or any SMTP provider.<br />
         <span className="text-xs">For Gmail: use an <b>App Password</b> (not your regular password) — create one at Google Account → Security → 2-Step Verification → App passwords.</span>
       </p>
+      <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3 mb-4">
+        <div>
+          <p className="text-sm font-medium text-foreground">Require 2FA on registration</p>
+          <p className="text-xs text-muted-foreground mt-0.5">When enabled, new users must verify their email with a one-time code before their account is activated.</p>
+        </div>
+        <Switch
+          checked={register2faEnabled}
+          onCheckedChange={setRegister2faEnabled}
+        />
+      </div>
       <div className="space-y-3">
         <div className="grid grid-cols-3 gap-3">
           <div className="col-span-2">
