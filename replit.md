@@ -13,6 +13,7 @@ An admin-only control panel for managing the Steam Family platform. The public m
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string (Replit-managed Postgres is already provisioned and set)
+- For deployments where the main site and admin console are on different subdomains, set `SESSION_COOKIE_DOMAIN` to their shared parent domain (for example, `.steamfamily.gg`) so the login session is available on both hosts.
 
 ### Vercel database setup
 

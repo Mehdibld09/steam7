@@ -18,6 +18,7 @@ app.set("trust proxy", 1);
 const PgSession = connectPgSimple(session);
 
 const pinoMiddleware = (typeof pinoHttp === "function" ? pinoHttp : (pinoHttp as any).default) as typeof pinoHttp;
+const sessionCookieDomain = process.env.SESSION_COOKIE_DOMAIN?.trim() || undefined;
 
 app.use(
   pinoMiddleware({
@@ -72,6 +73,9 @@ app.use(
       httpOnly: true,
       maxAge: 30 * 24 * 60 * 60 * 1000,
       sameSite: "lax",
+      // Set this to the shared parent domain (for example, ".steamfamily.gg")
+      // when the main site and admin console use different subdomains.
+      domain: sessionCookieDomain,
     },
   }),
 );

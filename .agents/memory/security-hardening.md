@@ -4,7 +4,7 @@ description: All security patches applied and the reasoning behind each one.
 ---
 
 ## Email domain whitelist
-Only @gmail.com, @outlook.com, @hotmail.com, @hotmail.fr, @hotmail.co.uk, @yahoo.com, @yahoo.fr, @yahoo.co.uk, @live.com, @msn.com allowed on registration. Hacker used cadebek.com (disposable). Whitelist is in `ALLOWED_EMAIL_DOMAINS` array in `artifacts/api-server/src/routes/auth.ts`.
+Only approved mainstream email providers are allowed on registration. The whitelist is in `ALLOWED_EMAIL_DOMAINS` in `artifacts/api-server/src/routes/auth.ts`.
 
 **Why:** Disposable/throwaway email providers let attackers create and abandon accounts with no traceability.
 
@@ -15,7 +15,7 @@ Only @gmail.com, @outlook.com, @hotmail.com, @hotmail.fr, @hotmail.co.uk, @yahoo
 - Admin panel users table: click any row to expand — shows email, reg IP, last login IP, last login time, joined date, premium, avatar URL.
 
 ## SSRF via avatar URL
-Hacker set avatar_url = `http://169.254.169.254/latest/meta-data/` (AWS IMDS). Now blocked: private IP ranges (10.x, 192.168.x, 172.16-31.x, 127.x, 169.254.x), localhost, *.local. Validated in avatar update route.
+Avatar URLs targeting cloud metadata, private IP ranges, localhost, or local domains are blocked by the avatar update validation.
 
 ## XP farming
 Self-likes blocked. Like/unlike loop now only grants XP on first like (not on unlike). Comment XP capped per post per user.
@@ -48,10 +48,9 @@ Self-likes blocked. Like/unlike loop now only grants XP on first like (not on un
 
 **How to apply:** Keep challenge identity and pending operations server-derived, clear one-time state after success, expire challenges quickly, and never put raw codes or plaintext passwords in storage.
 
-## Known hacker on record (Vercel DB)
-- Vercel user id: 264, username: `a user`
-- Email: `soyito5427@cadebek.com` (disposable — cadebek.com)
-- avatar_url: `http://169.254.169.254/latest/meta-data/` (AWS IMDS SSRF)
-- registration_ip: `94.227.67.19` — Telenet BV residential, Mechelen, Belgium 🇧🇪
-- Also attempted stored XSS: account title `<script>alert(1)</script>`
-- Claimed Steam account #52 (Faizul07 + real password) 122 times
+## Cross-subdomain admin sessions
+When the public site and admin console use different subdomains, configure the session cookie with their shared parent domain through `SESSION_COOKIE_DOMAIN`; leave it unset for host-only preview cookies.
+
+**Why:** A host-only session cookie is not sent when the user follows an admin link to another subdomain, forcing an unnecessary second login.
+
+**How to apply:** Set the production value to the parent domain with a leading dot, such as `.steamfamily.gg`, and keep the same session secret and database behind both hosts.
